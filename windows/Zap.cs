@@ -1185,6 +1185,37 @@ namespace Zap
                             break;
                         case 9:
                             settings?.Close();
+                            // 진짜 마우스로 자 우클릭 → 메뉴에서 "Ruler Settings…" 클릭
+                            var c = ruler.ScreenPt(ruler.Len / 3, ruler.T / 2);
+                            Mouse((int)c.X, (int)c.Y, 0x0008, 0x0010);
+                            break;
+                        case 10:
+                            Snap("10-rightclick-menu.png");
+                            var item = contextMenu?.Items.OfType<WF.ToolStripMenuItem>().FirstOrDefault(i => i.Text == "Ruler Settings…");
+                            Program.Log($"context menu visible={contextMenu?.Visible} item={(item != null)}");
+                            if (item == null) throw new Exception("context menu missing");
+                            var ib = item.Bounds; var mb = contextMenu.Bounds;
+                            Mouse(mb.Left + ib.Left + ib.Width / 2, mb.Top + ib.Top + ib.Height / 2, 0x0002, 0x0004);
+                            break;
+                        case 11:
+                            Snap("11-after-menu-click.png");
+                            Program.Log("settings opened from right-click menu = " + (settings != null && settings.IsVisible));
+                            if (settings == null) throw new Exception("right-click menu item did nothing");
+                            settings.Close();
+                            // 한 번 더: 회전 항목
+                            var c2 = ruler.ScreenPt(ruler.Len / 3, ruler.T / 2);
+                            Mouse((int)c2.X, (int)c2.Y, 0x0008, 0x0010);
+                            break;
+                        case 12:
+                            var rot = contextMenu.Items.OfType<WF.ToolStripMenuItem>().First(i => i.Text == "Rotate Ruler 90°");
+                            var before = ruler.Angle;
+                            rotBefore = before;
+                            Mouse(contextMenu.Bounds.Left + rot.Bounds.Left + rot.Bounds.Width / 2, contextMenu.Bounds.Top + rot.Bounds.Top + rot.Bounds.Height / 2, 0x0002, 0x0004);
+                            break;
+                        case 13:
+                            Snap("12-after-rotate-item.png");
+                            Program.Log($"rotate item: angle {rotBefore} -> {ruler.Angle}");
+                            if (Math.Abs(ruler.Angle - rotBefore) < 0.1) throw new Exception("rotate menu item did nothing");
                             t.Stop();
                             Program.Log("selftest ok");
                             done(0);
@@ -1194,6 +1225,16 @@ namespace Zap
                 catch (Exception ex) { t.Stop(); Program.Log("selftest FAIL " + ex); done(2); }
             };
             t.Start();
+        }
+        double rotBefore;
+        [DllImport("user32")] static extern bool SetCursorPos(int x, int y);
+        [DllImport("user32")] static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
+        static void Mouse(int x, int y, uint down, uint up)
+        {
+            SetCursorPos(x, y);
+            mouse_event(down, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(up, 0, 0, 0, UIntPtr.Zero);
+            Program.Log($"mouse {down:x} at {x},{y}");
         }
         static void Snap(string name)
         {
@@ -1206,9 +1247,12 @@ namespace Zap
             Program.Log("snap " + name);
         }
 
+        /// 자 우클릭 메뉴. 닫힐 때 Dispose하면 항목 클릭이 처리되기 전에 사라져서 하나도 안 먹힌다 → 하나를 계속 재사용.
+        WF.ContextMenuStrip contextMenu;
         void ShowMenu(bool contextual)
         {
             var m = new WF.ContextMenuStrip();
+            contextMenu = m;
             Fill(m, contextual);
             m.Closed += (s, e) => m.Dispose();
             m.Show(WF.Cursor.Position);
