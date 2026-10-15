@@ -3,3 +3,5 @@ dist/
 tools/
 .DS_Store
 Sources/*.SAFE-BACKUP*
+windows/bin/
+windows/obj/

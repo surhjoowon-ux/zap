@@ -16,6 +16,14 @@
 
 macOS 12 이상, Apple Silicon과 Intel 모두 지원합니다.
 
+### Windows
+
+1. [Releases](../../releases/latest)에서 `zap-windows.zip`을 받아 압축을 풀고 `zap.exe`를 실행합니다. 설치 과정은 없습니다.
+2. 처음 실행할 때 "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누릅니다. 코드 서명을 하지 않은 앱이라서 그렇습니다.
+3. zap은 작업 표시줄 오른쪽 트레이(시계 옆 `^`)에 들어갑니다.
+
+Windows 10/11에서 돌아갑니다(.NET Framework 4.8, 기본 내장). 단축키는 `⌃⌥` 대신 `Ctrl+Alt`, 메뉴는 트레이 아이콘을 누르면 나옵니다. 리퀴드 글라스 효과는 macOS 전용이라 Windows판 자는 반투명 바탕으로 그려집니다.
+
 ## 쓰는 법
 
 - **켜고 끄기**: `⌃⌥R`, 또는 메뉴 막대의 자 아이콘
@@ -37,7 +45,8 @@ macOS 12 이상, Apple Silicon과 Intel 모두 지원합니다.
 ## 직접 빌드
 
 ```
-./build.sh   # dist/zap.app, dist/zap.dmg
+./build.sh           # dist/zap.app, dist/zap.dmg
+windows/build.sh     # dist/zap-windows.zip (.NET 8 SDK 필요, 맥에서도 빌드됨)
 ```
 
 ---
