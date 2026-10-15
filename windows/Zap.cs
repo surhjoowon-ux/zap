@@ -1112,6 +1112,61 @@ namespace Zap
             }
         }
 
+        /// GitHub Actions의 Windows 서버에서 돌리는 점검: 창 상태를 기록하고 화면을 캡처한 뒤 종료
+        public void RunSelfTest(Action<int> done)
+        {
+            int step = 0;
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+            t.Tick += (s, e) =>
+            {
+                try
+                {
+                    switch (step++)
+                    {
+                        case 0:
+                            Program.Log($"ruler visible={ruler.IsVisible} pos=({ruler.Left},{ruler.Top}) size=({ruler.ActualWidth}x{ruler.ActualHeight}) origin=({ruler.OX},{ruler.OY}) len={ruler.Len} T={ruler.T} scale={ruler.Sc}");
+                            foreach (var m in Mon.All()) Program.Log($"monitor {m.Name} {m.Width}x{m.Height} scale={m.Scale} mmPerDip={Disp.MMPerDip(m)} src={Disp.SourceOf(m)}");
+                            Snap("1-ruler.png");
+                            ruler.Rotate(Math.PI / 6);
+                            break;
+                        case 1:
+                            Snap("2-rotated.png");
+                            OpenSettings();
+                            break;
+                        case 2:
+                            Snap("3-settings.png");
+                            settings?.Close();
+                            measure.Show();
+                            break;
+                        case 3:
+                            Snap("4-measure.png");
+                            measure.Close();
+                            OpenCalibration();
+                            break;
+                        case 4:
+                            Snap("5-calibration.png");
+                            calibration?.Close();
+                            t.Stop();
+                            Program.Log("selftest ok");
+                            done(0);
+                            break;
+                    }
+                }
+                catch (Exception ex) { t.Stop(); Program.Log("selftest FAIL " + ex); done(2); }
+            };
+            t.Start();
+        }
+        static void Snap(string name)
+        {
+            var b = WF.SystemInformation.VirtualScreen;
+            using (var bmp = new SD.Bitmap(b.Width, b.Height))
+            {
+                using (var g = SD.Graphics.FromImage(bmp)) g.CopyFromScreen(b.Left, b.Top, 0, 0, bmp.Size);
+                bmp.Save(Path.Combine(Store.Dir, name), SD.Imaging.ImageFormat.Png);
+            }
+            Program.Log("snap " + name);
+        }
+
         void ShowMenu(bool contextual)
         {
             var m = new WF.ContextMenuStrip();
@@ -1190,15 +1245,40 @@ namespace Zap
 
     static class Program
     {
-        [STAThread]
-        static void Main()
+        static readonly string LogPath = Path.Combine(Store.Dir, "zap.log");
+        public static void Log(string msg)
         {
+            try { Directory.CreateDirectory(Store.Dir); File.AppendAllText(LogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {msg}\r\n"); } catch { }
+            Console.WriteLine(msg);
+        }
+        static void Crash(object e)
+        {
+            Log("CRASH " + e);
+            if (!SelfTest) MessageBox.Show("zap ran into a problem and has to close.\n\n" + e + "\n\nLog: " + LogPath, "zap", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        public static bool SelfTest;
+
+        [STAThread]
+        static int Main(string[] args)
+        {
+            SelfTest = args.Contains("--selftest");
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => { Crash(e.ExceptionObject); Environment.Exit(1); };
             using (var single = new Mutex(true, "studio.standing.zap", out bool first))
             {
-                if (!first) return;
+                if (!first) { Log("already running"); return 0; }
+                Log($"start {Environment.OSVersion} clr {Environment.Version} 64bit={Environment.Is64BitProcess}");
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                app.Startup += (s, e) => new App().Start();
+                app.DispatcherUnhandledException += (s, e) => { Crash(e.Exception); e.Handled = true; app.Shutdown(1); };
+                int code = 0;
+                app.Startup += (s, e) =>
+                {
+                    var a = new App();
+                    a.Start();
+                    Log("started");
+                    if (SelfTest) a.RunSelfTest(c => { code = c; app.Shutdown(c); });
+                };
                 app.Run();
+                return code;
             }
         }
     }

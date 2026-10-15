@@ -1,0 +1,26 @@
+name: windows-selftest
+on:
+  workflow_dispatch:
+  push:
+    paths: ['windows/**', '.github/workflows/windows-selftest.yml']
+jobs:
+  selftest:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: dotnet build windows/zap.csproj -c Release -nologo
+      - name: Run selftest
+        shell: pwsh
+        run: |
+          $p = Start-Process windows/bin/Release/zap.exe -ArgumentList '--selftest' -PassThru
+          if (-not $p.WaitForExit(60000)) { Stop-Process $p; Write-Host "TIMEOUT" }
+          Write-Host "exit code: $($p.ExitCode)"
+          Get-Content "$env:APPDATA/zap/zap.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest
+          path: |
+            ${{ env.APPDATA }}/zap/*.png
+            ${{ env.APPDATA }}/zap/zap.log
