@@ -1251,11 +1251,9 @@ namespace Zap
         WF.ContextMenuStrip contextMenu;
         void ShowMenu(bool contextual)
         {
-            var m = new WF.ContextMenuStrip();
-            contextMenu = m;
-            Fill(m, contextual);
-            m.Closed += (s, e) => m.Dispose();
-            m.Show(WF.Cursor.Position);
+            if (contextMenu == null) contextMenu = new WF.ContextMenuStrip();
+            Fill(contextMenu, contextual);
+            contextMenu.Show(WF.Cursor.Position);
         }
 
         void Fill(WF.ContextMenuStrip m, bool contextual)
