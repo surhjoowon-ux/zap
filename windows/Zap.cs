@@ -339,7 +339,8 @@ namespace Zap
         readonly Face face;
         public Action<bool> OnMenu;  // 오른쪽 클릭 메뉴
 
-        public Mon Mon => Mon.At(ScreenPt(Len / 2, T / 2).X, ScreenPt(Len / 2, T / 2).Y);
+        // 두께(T)는 배율에 달려 있어서 여기서 쓰면 무한 재귀가 된다. 0점 모서리 가운데로 판단.
+        public Mon Mon => Mon.At(ScreenPt(Len / 2, 0).X, ScreenPt(Len / 2, 0).Y);
         public double Sc => Mon.Scale;
         public double T => St.Thickness * Sc;
         double Grip => 22 * Sc;
