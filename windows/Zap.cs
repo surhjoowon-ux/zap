@@ -1007,8 +1007,8 @@ namespace Zap
             rows.Children.Add(bottom);
             Content = rows;
 
-            color1.Click += (s, e) => { if (Pick(St.Color) is Color c) St.Color = c; };
-            color2.Click += (s, e) => { if (Pick(St.Color2) is Color c) St.Color2 = c; };
+            color1.Click += (s, e) => PickColor(false);
+            color2.Click += (s, e) => PickColor(true);
             gradient.Click += (s, e) => St.Gradient = gradient.IsChecked == true;
             choose.Click += (s, e) => PickImage();
             removeImage.Click += (s, e) => { DeleteImage(); St.ImagePath = null; };
@@ -1042,12 +1042,21 @@ namespace Zap
             syncing = false;
         }
 
-        static Color? Pick(Color c)
+        /// 대화상자 주인: 이걸 안 주면 '항상 위' 설정 창 뒤에 숨어서 아무 일도 안 일어난 것처럼 보임
+        sealed class Owner : WF.IWin32Window { public IntPtr Handle { get; set; } }
+
+        public void PickColor(bool second)
         {
+            var c = second ? St.Color2 : St.Color;
             using (var d = new WF.ColorDialog { Color = SD.Color.FromArgb(c.R, c.G, c.B), FullOpen = true })
-                return d.ShowDialog() == WF.DialogResult.OK ? Color.FromRgb(d.Color.R, d.Color.G, d.Color.B) : (Color?)null;
+            {
+                if (d.ShowDialog(new Owner { Handle = W.Handle(this) }) != WF.DialogResult.OK) return;
+                var n = Color.FromRgb(d.Color.R, d.Color.G, d.Color.B);
+                if (second) St.Color2 = n; else St.Color = n;
+            }
+            Program.Log($"color set {(second ? 2 : 1)} {St.Color} {St.Color2}");
         }
-        void PickImage()
+        public void PickImage()
         {
             var d = new OpenFileDialog { Title = "Choose a photo for the ruler", Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff|All files|*.*" };
             if (d.ShowDialog(this) != true) return;
@@ -1058,9 +1067,10 @@ namespace Zap
                 var dst = Path.Combine(Store.Dir, $"ruler-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{Path.GetExtension(d.FileName)}");
                 File.Copy(d.FileName, dst, true);
                 St.ImagePath = dst;
-                if (St.Image == null) { DeleteImage(); St.ImagePath = null; }
+                if (St.Image == null) { Program.Log("image load failed " + dst); DeleteImage(); St.ImagePath = null; }
+                else Program.Log("image set " + dst);
             }
-            catch { }
+            catch (Exception ex) { Program.Log("image FAIL " + ex); }
         }
         static void DeleteImage() { try { if (St.ImagePath is string p) File.Delete(p); } catch { } }
     }
@@ -1147,6 +1157,34 @@ namespace Zap
                         case 4:
                             Snap("5-calibration.png");
                             calibration?.Close();
+                            ruler.Rotate(-Math.PI / 6);
+                            St.Color = Color.FromRgb(255, 140, 40); St.Color2 = Color.FromRgb(90, 230, 90); St.Gradient = true;
+                            break;
+                        case 5:
+                            Snap("6-gradient.png");
+                            File.Copy(Path.Combine(Store.Dir, "1-ruler.png"), Path.Combine(Store.Dir, "photo-test.png"), true);
+                            St.ImagePath = Path.Combine(Store.Dir, "photo-test.png");
+                            Program.Log("image loaded=" + (St.Image != null));
+                            break;
+                        case 6:
+                            Snap("7-photo.png");
+                            St.ResetLook();
+                            OpenSettings();
+                            var sw = settings;
+                            sw.Dispatcher.BeginInvoke(new Action(() => sw.PickColor(false)));
+                            break;
+                        case 7:
+                            Snap("8-colordialog.png");
+                            WF.SendKeys.SendWait("{ESC}");
+                            var sw2 = settings;
+                            sw2.Dispatcher.BeginInvoke(new Action(() => sw2.PickImage()));
+                            break;
+                        case 8:
+                            Snap("9-filedialog.png");
+                            WF.SendKeys.SendWait("{ESC}");
+                            break;
+                        case 9:
+                            settings?.Close();
                             t.Stop();
                             Program.Log("selftest ok");
                             done(0);
