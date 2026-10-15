@@ -1,0 +1,5 @@
+build/
+dist/
+tools/
+.DS_Store
+Sources/*.SAFE-BACKUP*
